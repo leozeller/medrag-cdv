@@ -28,14 +28,37 @@ ollama pull gemma2:2b
 
 ## Data
 
-MedQuAD is downloaded from <https://github.com/abachaa/MedQuAD>:
+MedQuAD ([github.com/abachaa/MedQuAD](https://github.com/abachaa/MedQuAD))
+is **not committed** to this repo. Clone it into `data/medquad/`:
 
 ```bash
-uv run python -m src.data.download_medquad
+cd data && git clone https://github.com/abachaa/MedQuAD.git medquad
 ```
 
-The raw XML is parsed into `data/processed/medquad.jsonl` (one
-question/answer record per line, with UMLS CUI annotations).
+Then parse the XML corpus to a JSONL workfile:
+
+```bash
+uv run python -m src.data.parse_medquad
+```
+
+The parser walks `data/medquad/*/*.xml`, normalises whitespace, drops
+QA pairs with empty `<Answer>` fields, and writes one JSON record per
+QA pair to `data/processed/medquad.jsonl` (~16k records, ~26 MB).
+
+## Data attribution
+
+MedQuAD is published under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+If you use this code or its outputs, cite the original paper:
+
+> Asma Ben Abacha and Dina Demner-Fushman.
+> *A Question-Entailment Approach to Question Answering.*
+> BMC Bioinformatics, 20(1):511, 2019.
+> <https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-3119-4>
+
+**Modifications.** We use the data in transformed form: XML records are
+parsed to JSONL, whitespace is normalised, and QA pairs with empty
+`<Answer>` fields are dropped.
 
 ## Running the pipeline
 
