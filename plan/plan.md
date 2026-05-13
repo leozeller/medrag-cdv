@@ -2,6 +2,17 @@
 
 Internal working document. Not for the lecturer.
 
+## Status (2026-05-13)
+
+Poster deadline: 2026-05-21.
+
+- Phase 0 ✅ Setup + uv scaffold (commit `6f421b5`)
+- Phase 1 ✅ MedQuAD parser, 16k records (commit `761fe01`)
+- Phase 2: indexing, dense retriever, generation
+- Phase 3: BM25 + entity-aware retriever
+- Phase 4: full evaluation on ~300 questions (Recall@5, MRR, ROUGE-L)
+- Phase 5: qualitative analysis + poster
+
 ---
 
 ## Roles
