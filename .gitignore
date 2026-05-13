@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/*.html
+
+# Project data — too large for git, regenerated from scripts
+data/medquad/
+data/processed/
+
+# FAISS indices — regenerated from scripts
+*.faiss
+*.index
+results/indices/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Secrets
+.env
+.env.local
+
+# Claude Code (project instructions + local settings, not for collaborators)
+CLAUDE.md
+.claude/
