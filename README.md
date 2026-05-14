@@ -22,8 +22,8 @@ uv sync
 uv run pip install \
     https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz
 
-# Pull the local LLM (default: gemma2:2b — small enough for CPU)
-ollama pull gemma2:2b
+# Pull the local LLM
+ollama pull medgemma1.5:4b
 ```
 
 ## Data
@@ -59,6 +59,17 @@ If you use this code or its outputs, cite the original paper:
 **Modifications.** We use the data in transformed form: XML records are
 parsed to JSONL, whitespace is normalised, and QA pairs with empty
 `<Answer>` fields are dropped.
+
+## Model attribution
+
+**LLM generator: `medgemma1.5:4b`** (Google MedGemma 1.5, 4B parameters).
+A Gemma 3 derivative fine-tuned by Google on medical text. Pulled locally
+via Ollama; held constant across all three retrievers.
+
+- Model card: <https://huggingface.co/google/medgemma-4b-it>
+- License: [Health AI Developer Foundations Terms of Use](https://developers.google.com/health-ai-developer-foundations/terms).
+  Research use only — **not for clinical decision support or any
+  patient-facing deployment**.
 
 ## Running the pipeline
 
