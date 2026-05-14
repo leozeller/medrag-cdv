@@ -2,16 +2,18 @@
 
 Internal working document. Not for the lecturer.
 
-## Status (2026-05-13)
+## Status (2026-05-14)
 
 Poster deadline: 2026-05-21.
 
-- Phase 0 ✅ Setup + uv scaffold (commit `6f421b5`)
-- Phase 1 ✅ MedQuAD parser, 16k records (commit `761fe01`)
-- Phase 2: indexing, dense retriever, generation
-- Phase 3: BM25 + entity-aware retriever
-- Phase 4: full evaluation on ~300 questions (Recall@5, MRR, ROUGE-L)
-- Phase 5: qualitative analysis + poster
+- Phase 0 ✅ Setup + uv scaffold (`6f421b5`)
+- Phase 1 ✅ MedQuAD parser, 16k records (`761fe01`)
+- Phase 2 ✅ Dense retrieval + LLM generation pipeline (`64b65ca`)
+- Phase 3 ✅ BM25 (`1dfc810`) + entity-aware skeleton (`17e3d98`)
+- Phase 4 ✅ Evaluation module: Recall@5, MRR, ROUGE-L (`dd7a270`)
+- Next: full pipeline runs (3 retrievers × ~300 questions) once the
+  FAISS index is built and scispaCy `en_core_sci_md` is installed
+- Then: qualitative analysis + poster
 
 ---
 
