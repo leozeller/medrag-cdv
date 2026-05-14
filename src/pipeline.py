@@ -119,6 +119,7 @@ def run(
     embedding_model: str,
     chunk_size: int,
     chunk_overlap: int,
+    entity_threshold: float,
     sample_size: int,
     seed: int,
     k: int,
@@ -140,6 +141,14 @@ def run(
     elif retriever_name == "bm25":
         print("Building BM25 index in memory…")
         retriever = BM25Retriever(input_path, chunk_size, chunk_overlap)
+    elif retriever_name == "entity":
+        print(f"Loading FAISS index from {index_path} + scispaCy linker…")
+        # Lazy import: scispaCy model is heavy and only needed for entity.
+        from src.entity import EntityExtractor
+        from src.retrievers.entity_aware import EntityAwareRetriever
+
+        extractor = EntityExtractor(threshold=entity_threshold)
+        retriever = EntityAwareRetriever(index_path, embedding_model, extractor)
     else:
         raise ValueError(f"Unknown retriever: {retriever_name}")
 
@@ -155,9 +164,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--retriever",
-        choices=["dense", "bm25"],
+        choices=["dense", "bm25", "entity"],
         required=True,
-        help="Which retriever to run. (entity-aware comes in Phase 3)",
+        help="Which retriever to run.",
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--index", type=Path, default=DEFAULT_INDEX)
@@ -165,6 +174,12 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     parser.add_argument(
         "--chunk-overlap", type=int, default=DEFAULT_CHUNK_OVERLAP
+    )
+    parser.add_argument(
+        "--entity-threshold",
+        type=float,
+        default=0.85,
+        help="scispaCy UMLS linker confidence threshold (entity retriever only).",
     )
     parser.add_argument(
         "--output",
@@ -197,6 +212,7 @@ def main() -> None:
         embedding_model=args.embedding_model,
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
+        entity_threshold=args.entity_threshold,
         sample_size=args.sample_size,
         seed=args.seed,
         k=args.k,
