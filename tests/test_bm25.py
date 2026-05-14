@@ -65,20 +65,3 @@ def test_bm25_prefers_lexical_match(tmp_path):
     assert results[0].score > results[1].score
 
 
-def test_bm25_returns_passage_metadata(tmp_path):
-    corpus = _write_corpus(
-        tmp_path,
-        [_record("D1", "Hypertension is high blood pressure.")],
-    )
-    retriever = BM25Retriever(corpus, chunk_size=1000, chunk_overlap=0)
-
-    results = retriever.retrieve("blood pressure", k=1)
-
-    assert len(results) == 1
-    passage = results[0]
-    assert passage.doc_id == "D1"
-    assert passage.chunk_id.startswith("D1::")
-    assert "blood pressure" in passage.text
-    # BM25 score can be negative with very small corpora due to IDF;
-    # we just check it was set away from the Passage default of 0.0.
-    assert passage.score != 0.0

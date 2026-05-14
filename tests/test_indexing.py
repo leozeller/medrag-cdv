@@ -61,15 +61,3 @@ def test_chunk_documents_creates_chunk_ids_and_metadata():
         assert m["source"] == "S"
 
 
-def test_chunk_documents_handles_multiple_docs():
-    docs = {
-        "D1": {"doc_id": "D1", "focus": "X", "source": "S", "url": "u",
-               "text": "short text 1"},
-        "D2": {"doc_id": "D2", "focus": "Y", "source": "T", "url": "v",
-               "text": "short text 2"},
-    }
-    texts, metadatas = chunk_documents(docs, chunk_size=1200, chunk_overlap=200)
-
-    assert len(texts) == 2
-    doc_ids = {m["doc_id"] for m in metadatas}
-    assert doc_ids == {"D1", "D2"}

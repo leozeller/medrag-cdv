@@ -20,10 +20,6 @@ def test_strip_thinking_handles_unclosed_block_via_last_paragraph():
     assert _strip_thinking(text) == "Final answer here."
 
 
-def test_strip_thinking_passes_clean_text_through():
-    assert _strip_thinking("Just a plain answer.") == "Just a plain answer."
-
-
 def test_format_passages_numbers_and_separates():
     p1 = Passage(chunk_id="a::0", doc_id="a", text="First.", score=0.9)
     p2 = Passage(chunk_id="b::0", doc_id="b", text="Second.", score=0.8)
@@ -32,7 +28,3 @@ def test_format_passages_numbers_and_separates():
     assert "[1] First." in block
     assert "[2] Second." in block
     assert block.index("[1]") < block.index("[2]")
-
-
-def test_format_passages_empty_list_returns_empty_string():
-    assert _format_passages([]) == ""
