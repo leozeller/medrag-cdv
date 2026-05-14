@@ -17,9 +17,11 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+from src.chunking import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 from src.generation import Generator
 from src.passages import Passage
 from src.retrievers import Retriever
+from src.retrievers.bm25 import BM25Retriever
 from src.retrievers.dense import DenseRetriever
 
 DEFAULT_INPUT = Path("data/processed/medquad.jsonl")
@@ -113,6 +115,8 @@ def run(
     *,
     index_path: Path,
     embedding_model: str,
+    chunk_size: int,
+    chunk_overlap: int,
     sample_size: int,
     seed: int,
     k: int,
@@ -127,8 +131,15 @@ def run(
         print("Nothing to do.")
         return
 
-    print(f"Loading FAISS index from {index_path}…")
-    retriever: Retriever = DenseRetriever(index_path, embedding_model)
+    retriever: Retriever
+    if retriever_name == "dense":
+        print(f"Loading FAISS index from {index_path}…")
+        retriever = DenseRetriever(index_path, embedding_model)
+    elif retriever_name == "bm25":
+        print("Building BM25 index in memory…")
+        retriever = BM25Retriever(input_path, chunk_size, chunk_overlap)
+    else:
+        raise ValueError(f"Unknown retriever: {retriever_name}")
 
     print("Loading LLM…")
     generator = Generator()
@@ -142,13 +153,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--retriever",
-        choices=["dense"],
+        choices=["dense", "bm25"],
         required=True,
-        help="Which retriever to run. (bm25/entity-aware come in later phases)",
+        help="Which retriever to run. (entity-aware comes in Phase 3)",
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--index", type=Path, default=DEFAULT_INDEX)
     parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
+    parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
+    parser.add_argument(
+        "--chunk-overlap", type=int, default=DEFAULT_CHUNK_OVERLAP
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -178,6 +193,8 @@ def main() -> None:
         output_path=output,
         index_path=args.index,
         embedding_model=args.embedding_model,
+        chunk_size=args.chunk_size,
+        chunk_overlap=args.chunk_overlap,
         sample_size=args.sample_size,
         seed=args.seed,
         k=args.k,
