@@ -98,6 +98,8 @@ def _run_loop(
             output = {
                 "qid": record["qid"],
                 "doc_id": record["doc_id"],
+                "qtype": record["qtype"],
+                "source": record["source"],
                 "question": record["question"],
                 "gold_answer": record["answer"],
                 "passages": [_passage_to_dict(p) for p in passages],
