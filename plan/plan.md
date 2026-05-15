@@ -4,12 +4,10 @@ Internal working document. Not for the lecturer.
 
 ## Status (2026-05-15)
 
-- Phase 0 ✅ Setup + uv scaffold
-- Phase 1 ✅ MedQuAD parser, 16k records
-- Phase 2 ✅ Dense retrieval + LLM generation pipeline
-- Phase 3 ✅ BM25 retriever + entity-aware retriever
-- Phase 4 ✅ Evaluation: Recall@k, MRR, ROUGE-L, abstention rate,
-  passage overlap (`2db97fe`)
+- Phase 3 ✅ updated: entity-aware retriever now fully functional
+  (was skeleton on 2026-05-14)
+- Phase 4 ✅ updated: extended evaluation with abstention rate and
+  passage overlap metrics (`2db97fe`)
 - ✅ Generation tuning + LLM-only control baseline (`ffdff47`):
   switched to `medgemma:4b` (no thinking, ~3× faster), hardened
   with-passages prompt, runtime caps (`num_predict`, `num_thread`,
@@ -32,6 +30,17 @@ Poster deadline: 2026-05-21.
 - Next: full pipeline runs (3 retrievers × ~300 questions) once the
   FAISS index is built and scispaCy `en_core_sci_md` is installed
 - Then: qualitative analysis + poster
+
+## Status (2026-05-13)
+
+Poster deadline: 2026-05-21.
+
+- Phase 0 ✅ Setup + uv scaffold (commit `6f421b5`)
+- Phase 1 ✅ MedQuAD parser, 16k records (commit `761fe01`)
+- Phase 2: indexing, dense retriever, generation
+- Phase 3: BM25 + entity-aware retriever
+- Phase 4: full evaluation on ~300 questions (Recall@5, MRR, ROUGE-L)
+- Phase 5: qualitative analysis + poster
 
 ---
 
