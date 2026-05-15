@@ -75,7 +75,15 @@ def already_done_qids(output_path: Path) -> set[str]:
 
 
 def _passage_to_dict(p: Passage) -> dict:
-    return {"chunk_id": p.chunk_id, "doc_id": p.doc_id, "score": p.score}
+    # `text` is stored so that downstream eval can compute passage-overlap
+    # (grounding proxy) without rebuilding the chunk pool. ~3 × 1200 chars
+    # extra per record — small overhead, decoupling worth it.
+    return {
+        "chunk_id": p.chunk_id,
+        "doc_id": p.doc_id,
+        "text": p.text,
+        "score": p.score,
+    }
 
 
 def _prepare_records(

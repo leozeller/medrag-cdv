@@ -93,25 +93,32 @@ downstream.
 ### M5. Evaluation metrics
 
 **Decision:**
-- **Recall@5** and **MRR** at the doc level (see M4)
+- **Recall@k** and **MRR** at the doc level (see M4)
 - **ROUGE-L F1** between generated answer and gold answer
+- **Abstention rate** — fraction of answers containing "I don't know"
+  / "not enough information" phrases (proxy for calibration)
+- **Passage overlap** — fraction of answer tokens that also appear in
+  the retrieved passages (proxy for groundedness)
 - All metrics also reported **stratified by `qtype`** for the qualitative
   analysis
 - Full eval on a hand-sampled ~200–300 questions from the Disorders subset
   (exact size in D4)
 
-**Why:** Standard IR + generation metrics. Stratification by `qtype`
-surfaces *where* entity-aware specifically helps. The sample is needed
-because the LLM generation step dominates wall-clock time (~10–30 sec
-per question × 3 retrievers × N questions).
+**Why:** Recall@k and MRR are clean retrieval-only metrics. ROUGE-L is
+the standard generation metric but has known limits (see M8).
+Abstention rate and passage overlap are cheap, no-extra-LLM-call proxies
+for the things ROUGE-L misses (calibration and grounding). Stratification
+by `qtype` surfaces *where* entity-aware specifically helps. The sample
+is needed because the LLM generation step dominates wall-clock time.
 
 **Tradeoff:**
 - Sampling 200–300 instead of the full 15,842 Disorders questions reduces
   statistical power — confidence intervals on the metric deltas will be
   wider.
-- ROUGE-L is a coarse lexical match; it misses semantic equivalence.
-  Acceptable for a poster comparison; a research-grade eval would add an
-  LLM judge or human ratings.
+- Abstention rate is a substring match — it catches the phrases the
+  prompt encourages but misses paraphrased uncertainty.
+- Passage overlap is token-set-based, not semantic — it rewards verbatim
+  paraphrasing of passages and undercounts faithful but reworded answers.
 
 ### M6. No training
 
@@ -144,6 +151,36 @@ question text, CUIs, and qtypes are valid. They could be used for
 question-side studies (e.g. entity-linker quality) but not for our
 retrieval-and-generation loop. The restriction is documented in README
 under "Modifications".
+
+### M8. ROUGE-L is incomplete — supplement with abstention + grounding proxies
+
+**Decision:** ROUGE-L F1 alone is not enough to evaluate RAG quality.
+We supplement it with two cheap, no-extra-LLM proxies — *abstention rate*
+and *passage overlap* (formal definitions in M5) — and document the
+remaining gap with manual annotation of the 20 qualitative cases.
+
+**Why:** The dense smoke surfaced cases where the LLM-only baseline
+generated factually wrong but lexically plausible answers (e.g. claiming
+HMERF is a muscular dystrophy). ROUGE-L scored those near the
+retrieval-augmented variants because the wrong answer still shares
+medical vocabulary with the gold. Without supplementary signals, the
+ROUGE-L delta would underestimate retrieval's contribution.
+
+- Abstention rate distinguishes a well-calibrated "I don't know" from
+  a confident hallucination — both score equally low on ROUGE-L.
+- Passage overlap distinguishes an answer grounded in retrieved
+  passages from one fabricated by the LLM — even when both produce
+  lexically similar output.
+- Qualitative annotation of the 20 hand-picked cases (Phase 5) records
+  explicit faithful-vs-hallucinated labels.
+
+**Tradeoff:**
+- Neither proxy is a true faithfulness measure. An LLM-as-judge
+  approach (e.g. RAGAS, TruLens) would be stronger but adds doubled
+  eval-time, and the judge LLM has its own hallucination risk. Skipped
+  for the sprint; flagged as future work in the poster.
+- The abstention phrases are English-language and prompt-specific —
+  rephrased uncertainty ("hard to say without more info") is missed.
 
 ---
 

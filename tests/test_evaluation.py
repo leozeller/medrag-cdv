@@ -15,7 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from src.evaluation import aggregate, evaluate_run, rouge_l_f1
+from src.evaluation import (
+    aggregate,
+    evaluate_run,
+    is_abstention,
+    passage_overlap,
+    rouge_l_f1,
+)
 
 
 def test_rouge_l_f1_handles_empty():
@@ -29,7 +35,32 @@ def test_aggregate_handles_empty():
         "recall_at_k": 0.0,
         "mrr": 0.0,
         "rouge_l_f1": 0.0,
+        "abstention_rate": 0.0,
+        "passage_overlap": 0.0,
     }
+
+
+def test_is_abstention_detects_phrases():
+    # Triggers
+    assert is_abstention("I don't know the answer.") is True
+    assert is_abstention("Not enough information in the provided passages.") is True
+    assert is_abstention("The passages do not contain enough info.") is True
+    # Doesn't trigger
+    assert is_abstention("Hypertension is high blood pressure.") is False
+    assert is_abstention("") is False
+
+
+def test_passage_overlap_grounded_vs_fabricated():
+    passages = ["Hypertension is high blood pressure."]
+    # Fully grounded — every word also in passage
+    assert passage_overlap("Hypertension is high blood pressure", passages) == 1.0
+    # Partially grounded
+    grounded = passage_overlap("Hypertension is a chronic condition", passages)
+    assert 0 < grounded < 1
+    # Empty passage list (LLM-only baseline) → 0.0
+    assert passage_overlap("Hypertension is high blood pressure", []) == 0.0
+    # Empty answer → 0.0
+    assert passage_overlap("", passages) == 0.0
 
 
 def test_evaluate_run_and_aggregate_end_to_end(tmp_path: Path):
@@ -88,3 +119,5 @@ def test_evaluate_run_and_aggregate_end_to_end(tmp_path: Path):
     assert agg["recall_at_k"] == 0.5
     assert agg["mrr"] == pytest.approx(0.25)
     assert agg["rouge_l_f1"] > 0.4
+    assert "abstention_rate" in agg
+    assert "passage_overlap" in agg

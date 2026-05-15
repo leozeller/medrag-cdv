@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
@@ -29,6 +30,23 @@ DEFAULT_K = 3   # matches pipeline default-k (k=3 retrieved per question)
 DEFAULT_METRICS_OUTPUT = Path("results/metrics.csv")
 
 _ROUGE = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
+_WORD_RE = re.compile(r"\w+", re.UNICODE)
+
+# Substrings (case-insensitive) that mark an honest abstention. These
+# match either the with-passages prompt's "passages do not contain enough
+# information" guidance, or the LLM-only prompt's "I don't know" fallback.
+_ABSTENTION_PHRASES = (
+    "i don't know",
+    "i do not know",
+    "i'm not sure",
+    "i am not sure",
+    "i'm unsure",
+    "not enough information",
+    "passages do not contain",
+    "cannot answer",
+    "unable to answer",
+    "no information",
+)
 
 
 def _unique_in_order(items: list[str]) -> list[str]:
@@ -62,6 +80,34 @@ def rouge_l_f1(generated: str, gold: str) -> float:
     return _ROUGE.score(gold, generated)["rougeL"].fmeasure
 
 
+def is_abstention(answer: str) -> bool:
+    """True if the answer contains a known 'I don't know' / abstention phrase.
+
+    A well-calibrated model under retrieval should abstain when passages
+    don't support an answer; a poorly calibrated one hallucinates instead.
+    """
+    lower = answer.lower()
+    return any(phrase in lower for phrase in _ABSTENTION_PHRASES)
+
+
+def passage_overlap(answer: str, passage_texts: list[str]) -> float:
+    """Fraction of the answer's unique tokens that also appear in any passage.
+
+    A coarse proxy for whether the generated answer is grounded in the
+    retrieved passages or fabricated. Tokens are lowercased word characters.
+    Returns 0.0 when either side is empty (e.g. LLM-only baseline).
+    """
+    answer_tokens = {t.lower() for t in _WORD_RE.findall(answer)}
+    if not answer_tokens:
+        return 0.0
+    passage_tokens: set[str] = set()
+    for p in passage_texts:
+        passage_tokens.update(t.lower() for t in _WORD_RE.findall(p))
+    if not passage_tokens:
+        return 0.0
+    return len(answer_tokens & passage_tokens) / len(answer_tokens)
+
+
 def evaluate_run(run_path: Path, k: int) -> list[dict]:
     """Compute per-question metrics from one pipeline output JSONL."""
     records: list[dict] = []
@@ -69,28 +115,44 @@ def evaluate_run(run_path: Path, k: int) -> list[dict]:
         for line in fh:
             r = json.loads(line)
             retrieved_doc_ids = [p["doc_id"] for p in r["passages"]]
+            # `text` is only present on newer pipeline outputs; fall back
+            # to empty string so older smoke runs evaluate without error.
+            passage_texts = [p.get("text", "") for p in r["passages"]]
+            generated = r["generated_answer"]
             records.append(
                 {
                     "qid": r["qid"],
                     "qtype": r.get("qtype", ""),
                     "recall_at_k": recall_at_k(retrieved_doc_ids, r["doc_id"], k),
                     "mrr": mrr(retrieved_doc_ids, r["doc_id"]),
-                    "rouge_l_f1": rouge_l_f1(
-                        r["generated_answer"], r["gold_answer"]
-                    ),
+                    "rouge_l_f1": rouge_l_f1(generated, r["gold_answer"]),
+                    "abstention": int(is_abstention(generated)),
+                    "passage_overlap": passage_overlap(generated, passage_texts),
                 }
             )
     return records
 
 
+_ZERO_AGG = {
+    "n": 0,
+    "recall_at_k": 0.0,
+    "mrr": 0.0,
+    "rouge_l_f1": 0.0,
+    "abstention_rate": 0.0,
+    "passage_overlap": 0.0,
+}
+
+
 def aggregate(per_q: list[dict]) -> dict:
     if not per_q:
-        return {"n": 0, "recall_at_k": 0.0, "mrr": 0.0, "rouge_l_f1": 0.0}
+        return dict(_ZERO_AGG)
     return {
         "n": len(per_q),
         "recall_at_k": mean(r["recall_at_k"] for r in per_q),
         "mrr": mean(r["mrr"] for r in per_q),
         "rouge_l_f1": mean(r["rouge_l_f1"] for r in per_q),
+        "abstention_rate": mean(r["abstention"] for r in per_q),
+        "passage_overlap": mean(r["passage_overlap"] for r in per_q),
     }
 
 
@@ -157,7 +219,8 @@ def main() -> None:
         print(
             f"{row['retriever']:12s} qtype={row['qtype']:18s} "
             f"n={row['n']:4d}  R@{args.k}={row['recall_at_k']:.3f}  "
-            f"MRR={row['mrr']:.3f}  ROUGE-L={row['rouge_l_f1']:.3f}"
+            f"MRR={row['mrr']:.3f}  ROUGE-L={row['rouge_l_f1']:.3f}  "
+            f"Abstain={row['abstention_rate']:.2f}  Overlap={row['passage_overlap']:.2f}"
         )
     print(f"\nMetrics written to {args.output}")
 
