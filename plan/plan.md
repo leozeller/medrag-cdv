@@ -2,6 +2,24 @@
 
 Internal working document. Not for the lecturer.
 
+## Status (2026-05-15)
+
+- Phase 0 ✅ Setup + uv scaffold
+- Phase 1 ✅ MedQuAD parser, 16k records
+- Phase 2 ✅ Dense retrieval + LLM generation pipeline
+- Phase 3 ✅ BM25 retriever + entity-aware retriever
+- Phase 4 ✅ Evaluation: Recall@k, MRR, ROUGE-L, abstention rate,
+  passage overlap (`2db97fe`)
+- ✅ Generation tuning + LLM-only control baseline (`ffdff47`):
+  switched to `medgemma:4b` (no thinking, ~3× faster), hardened
+  with-passages prompt, runtime caps (`num_predict`, `num_thread`,
+  `keep_alive`)
+- ✅ FAISS index built; all four smoke runs pass with finalised prompt;
+  entity-aware shows R@3=1.0 / MRR=0.867 on the 5-question smoke
+- 🔄 Full eval started: 300 questions × 4 runs (dense, bm25, entity,
+  none), ~8h total
+- Next: qualitative analysis + poster
+
 ## Status (2026-05-14)
 
 Poster deadline: 2026-05-21.
