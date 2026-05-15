@@ -25,7 +25,7 @@ from statistics import mean
 
 from rouge_score import rouge_scorer
 
-DEFAULT_K = 5
+DEFAULT_K = 3   # matches pipeline default-k (k=3 retrieved per question)
 DEFAULT_METRICS_OUTPUT = Path("results/metrics.csv")
 
 _ROUGE = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)

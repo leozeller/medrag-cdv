@@ -24,13 +24,28 @@ from src.retrievers import Retriever
 from src.retrievers.bm25 import BM25Retriever
 from src.retrievers.dense import DenseRetriever
 
+
+class _NoRetriever:
+    """Sentinel retriever that returns no passages.
+
+    Used for the LLM-only baseline (`--retriever none`) — isolates how
+    much the LLM answers from its own pre-training knowledge, without
+    retrieval. The Generator switches to a no-context prompt when the
+    passages list is empty.
+    """
+
+    def retrieve(self, query: str, k: int = 5) -> list[Passage]:
+        # query + k are part of the Retriever protocol; unused here.
+        del query, k
+        return []
+
 DEFAULT_INPUT = Path("data/processed/medquad.jsonl")
 DEFAULT_INDEX = Path("results/indices/dense")
 DEFAULT_EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
 DEFAULT_OUTPUT_DIR = Path("results/runs")
 DEFAULT_SAMPLE_SIZE = 300
 DEFAULT_SEED = 42
-DEFAULT_K = 5
+DEFAULT_K = 3
 
 
 def load_sample(path: Path, sample_size: int, seed: int) -> list[dict]:
@@ -149,6 +164,9 @@ def run(
 
         extractor = EntityExtractor(threshold=entity_threshold)
         retriever = EntityAwareRetriever(index_path, embedding_model, extractor)
+    elif retriever_name == "none":
+        print("LLM-only baseline — no retrieval.")
+        retriever = _NoRetriever()
     else:
         raise ValueError(f"Unknown retriever: {retriever_name}")
 
@@ -164,9 +182,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--retriever",
-        choices=["dense", "bm25", "entity"],
+        choices=["dense", "bm25", "entity", "none"],
         required=True,
-        help="Which retriever to run.",
+        help="Which retriever to run. `none` = LLM-only baseline (no retrieval).",
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--index", type=Path, default=DEFAULT_INDEX)
