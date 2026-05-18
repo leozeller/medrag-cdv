@@ -70,12 +70,15 @@ def _grouped_bar(
 
 
 def plot_overall(metrics: list[dict], output: Path) -> None:
-    """Main bar chart: Recall@3 / MRR / ROUGE-L for the 4 retrievers."""
+    """Main bar chart: Recall@3 / MRR / ROUGE-L / BertScore for the 4 retrievers."""
+    # qtype=all AND source=all → the true overall row, not source-stratified.
     overall_by_retriever = {
-        r["retriever"]: r for r in metrics if r["qtype"] == "all"
+        r["retriever"]: r
+        for r in metrics
+        if r["qtype"] == "all" and r.get("source", "all") == "all"
     }
-    metric_keys = ["recall_at_k", "mrr", "rouge_l_f1"]
-    metric_labels = ["Recall@3", "MRR", "ROUGE-L F1"]
+    metric_keys = ["recall_at_k", "mrr", "rouge_l_f1", "bertscore_f1"]
+    metric_labels = ["Recall@3", "MRR", "ROUGE-L F1", "BertScore F1"]
 
     series = {
         retriever: [float(overall_by_retriever[retriever][k]) for k in metric_keys]
@@ -106,7 +109,9 @@ def plot_stratified(
     stratified = [
         r
         for r in metrics
-        if r["qtype"] != "all" and int(r["n"]) >= min_n
+        if r["qtype"] != "all"
+        and r.get("source", "all") == "all"
+        and int(r["n"]) >= min_n
     ]
     if not stratified:
         print(f"  skipped {output.name}: no qtypes with n >= {min_n}")
@@ -176,6 +181,10 @@ def main() -> None:
     plot_stratified(
         metrics, "rouge_l_f1", "ROUGE-L F1",
         args.output / "rouge_per_qtype.png", args.min_n,
+    )
+    plot_stratified(
+        metrics, "bertscore_f1", "BertScore F1",
+        args.output / "bertscore_per_qtype.png", args.min_n,
     )
     plot_stratified(
         metrics, "abstention_rate", "Abstention rate",
