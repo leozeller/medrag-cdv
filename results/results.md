@@ -261,6 +261,39 @@ answerable from the corpus at all?" oracle.
   Entity-Aware probably reflects chunk-granularity differences that
   Recall@3 cannot see.
 
+- **Single-gold labeling underestimates effective grounding.** MedQuAD
+  maps each qid to exactly one gold `doc_id`, but the same disease is
+  often covered across multiple NIH sources (NIDDK, NHLBI, GARD, etc.)
+  with overlapping content. Inspecting Case 1 (Hemochromatosis
+  treatment) in the qualitative notebook: Dense and Entity-Aware miss
+  the labeled NIDDK gold doc, but retrieve NHLBI and GARD docs that
+  describe the same treatments. The generated answer is faithfully
+  grounded in those retrieved passages — yet Recall@3 counts this as a
+  miss. So our absolute Recall@k numbers undercount the proportion of
+  questions where the system actually produces a correctly grounded
+  answer; the relative ranking between retrievers is preserved.
+
+- **Some MedQuAD gold answers don't actually answer their question.**
+  The QA pairs were auto-extracted from NIH brochures, and not all are
+  clean question-answer matches. Two patterns visible in the qualitative
+  notebook:
+  - Case 2 (Lennox-Gastaut treatment): the gold answer is a list of
+    external resources ("Cleveland Clinic", "MedlinePlus", etc.) without
+    naming any actual treatment, while all four generated answers name
+    the standard LGS drugs (clobazam, valproate, lamotrigine, …).
+  - Case 3 ("What is Hirschsprung Disease"): the gold answer describes
+    the large intestine in general (anatomy, length), not the disease
+    itself; three of four generated answers correctly describe
+    Hirschsprung (congenital, missing enteric nerves, surgical
+    treatment). The question is also awkwardly phrased ("What is
+    (are) What I need to know about …"), reflecting auto-extraction
+    from a brochure title.
+  In both, ROUGE-L cannot reward substantively correct generation
+  because the gold text talks about something different. This very
+  likely contributes to the consistently low ROUGE-L on the `treatment`
+  qtype (0.17–0.22 across all retrievers) and to scattered low scores
+  in `information` as well.
+
 ---
 
 ## Future work
