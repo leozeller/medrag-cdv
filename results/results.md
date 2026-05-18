@@ -51,28 +51,36 @@ template (see T8 in `decisions.md`).
 
 ## Overall metrics (n=300)
 
-| Retriever | Recall@3 | MRR | ROUGE-L F1 | Abstention | Passage overlap |
-|---|---:|---:|---:|---:|---:|
-| LLM-only | 0.000 | 0.000 | 0.164 | 0.02 | 0.00 |
-| BM25 | 0.847 | 0.748 | 0.294 | **0.11** | 0.85 |
-| Dense | **0.907** | **0.832** | **0.341** | 0.02 | **0.89** |
-| Entity-Aware | **0.910** | 0.819 | 0.335 | 0.03 | 0.88 |
+| Retriever | Recall@3 | MRR | ROUGE-L F1 | BertScore F1 | Abstention | Passage overlap |
+|---|---:|---:|---:|---:|---:|---:|
+| LLM-only | 0.000 | 0.000 | 0.164 | 0.037 | 0.02 | 0.00 |
+| BM25 | 0.847 | 0.748 | 0.294 | 0.154 | **0.11** | 0.85 |
+| Dense | **0.907** | **0.832** | **0.341** | **0.208** | 0.02 | **0.89** |
+| Entity-Aware | **0.910** | 0.819 | 0.335 | 0.203 | 0.03 | 0.88 |
+
+(BertScore F1 is computed with `bert-score` and `rescale_with_baseline=True`:
+0 = random baseline, 1 = perfect match, negative values possible for
+semantically worse-than-random output.)
 
 ![Overall metrics](plots/overall.png)
 
 **Reading the table.**
 
-- Dense and Entity-Aware are essentially tied on the three retrieval +
-  generation metrics; differences of 0.003 / 0.013 / 0.006 are well
-  inside the noise of a 300-question sample.
+- Dense and Entity-Aware are essentially tied on every metric;
+  differences of 0.003 / 0.013 / 0.006 / 0.005 are well inside the
+  noise of a 300-question sample.
 - BM25 sits 6–8 percentage points behind on Recall@3 and MRR, and 5 pp
-  behind on ROUGE-L. Its abstention rate is **5× higher** than Dense
-  (0.11 vs 0.02), which is consistent with the model being given
-  weaker context and honestly saying "not enough information".
+  behind on both ROUGE-L and BertScore. Its abstention rate is
+  **5× higher** than Dense (0.11 vs 0.02), which is consistent with
+  the model being given weaker context and honestly saying "not enough
+  information".
 - The LLM-only baseline contributes ROUGE-L = 0.164 — about **half**
-  of the retrieval-augmented variants. The first big result of this
-  study is that the retrieval-augmented variants roughly double the
-  ROUGE-L score over the no-retrieval baseline.
+  of the retrieval-augmented variants. BertScore tells the same story
+  more sharply: LLM-only sits at 0.037 vs Dense at 0.208, a **5.6×
+  lift** rather than ROUGE-L's 2.1× lift. BertScore captures the
+  semantic gap between hallucinated-but-vocabulary-similar LLM-only
+  output and properly grounded retrieval output, which ROUGE-L
+  underweights.
 - Passage overlap is high (0.85–0.89) for all retrieval variants,
   showing that the LLM does base most of its words on the retrieved
   passages when they are provided, consistent with the prompt's
@@ -158,12 +166,16 @@ shown below for statistical readability.
 
 ## Key findings
 
-1. **Retrieval substantially improves answer quality.** The three
-   retrieval-augmented variants more than double the LLM-only ROUGE-L
-   (0.164 → 0.29–0.34). This is the clearest aggregate signal in the
-   evaluation. Even though the LLM-only baseline produces plausible
-   medical-sounding answers, lexical overlap with the curated gold
-   answers is much weaker than what retrieval enables.
+1. **Retrieval substantially improves answer quality — and BertScore
+   shows the effect is larger than ROUGE-L suggested.** ROUGE-L
+   doubles (0.164 → 0.29–0.34); BertScore F1 shows a **5.6× lift**
+   (0.037 → 0.208 for Dense). BertScore catches the semantic gap
+   between LLM-only and retrieval-grounded answers that ROUGE-L
+   misses. The LLM-only outputs share medical vocabulary with the
+   gold (so ROUGE-L stays moderate), but on semantic similarity they
+   land near random baseline — a strong indication that without
+   retrieval, the model is hallucinating plausibly-worded but
+   off-target answers.
 
 2. **Entity-Aware does not improve over Dense on MedQuAD — negative
    result.** Entity-Aware was the CDV-inspired hypothesis of this
@@ -194,6 +206,14 @@ shown below for statistical readability.
    answer. Dense's near-zero abstention (0.02) is consistent with its
    higher recall but might also reflect overconfidence on the few
    cases where it retrieves the wrong doc.
+
+5. **LLM-only can drop *below* baseline on BertScore — a hallucination
+   signal.** On the `considerations` and `exams and tests` qtypes, the
+   LLM-only BertScore is **negative** (-0.012 and -0.015 respectively
+   after rescaling). The model produces medically plausible vocabulary
+   that scores moderately on ROUGE-L, but semantically the answers are
+   *worse than a random baseline match*. BertScore catches this where
+   ROUGE-L cannot.
 
 ---
 
