@@ -177,12 +177,16 @@ shown below for statistical readability.
    information. Where there is a recall benefit, it is concentrated in
    the `treatment` qtype, where queries are slightly more abstract.
 
-3. **BM25 has complementary strengths in narrow domains.** While BM25
-   is systematically weaker on average, it dominates the `genetic
-   changes` qtype (Recall@3 = 1.000 vs Dense 0.778; ROUGE-L 0.374 vs
-   0.252). Gene names, mutation IDs, and protein identifiers reward
-   exact-term match. Real-world systems would benefit from a hybrid
-   that routes such questions to BM25 first.
+3. **Complementarity is at the recall level, not the answer level.**
+   At doc retrieval, BM25 and Dense systematically miss *different*
+   questions, and BM25 dominates the `genetic changes` qtype
+   (Recall@3 = 1.000 vs Dense 0.778; ROUGE-L 0.374 vs 0.252) thanks to
+   exact-term match on gene names and mutation IDs. But qualitative
+   inspection (Bucket A in `notebooks/03_qualitative_analysis.ipynb`)
+   shows that at the *answer* level, both retrievers — and often even
+   the LLM-only baseline — produce correct answers when one of the
+   retrievers misses the labeled gold doc. Recall@k captures
+   *complementary failure modes*, not *complementary answer quality*.
 
 4. **Abstention rate is a meaningful calibration signal.** BM25's
    abstention rate (0.11 overall, 0.50 on `frequency`) is not failure
@@ -228,6 +232,32 @@ elevated abstention is the *correct* behaviour when retrieval fails —
 the LLM is honest about it rather than hallucinating. Future work
 should explicitly score abstention against an "is the question
 answerable from the corpus at all?" oracle.
+
+**On the meaning of "complementary".** Doc-level Recall@k shows that
+BM25 and Dense miss *different* questions, which is what we labelled
+"complementary" in the headline numbers. But the qualitative
+inspection of Bucket A revealed a more subtle picture: at the
+*answer* level, both retrievers — and frequently the LLM-only
+baseline — produced correct answers even when one retriever missed
+the labeled gold doc. Three reasons emerged from inspecting the five
+cases:
+
+1. The LLM brings substantial medical pre-training, so for standard
+   topics (e.g. Hemochromatosis treatment) it answers correctly even
+   without retrieval.
+2. Non-gold docs in the corpus often cover the same disease and
+   provide equivalent grounding — a "miss" against the single
+   labeled gold can still be a faithful retrieval (Case 1).
+3. About 4 of 5 Bucket A cases had MedQuAD data-quality issues
+   (reference-pointer or off-topic golds — Cases 2, 3, 4, 5), which
+   depress ROUGE-L uniformly across all retrievers and don't reflect
+   the actual quality of the generated answers.
+
+So Recall@k — and to a lesser extent ROUGE-L — capture complementary
+*failure modes*, not complementary *answer quality*. The retrieval
+variants still outperform LLM-only on aggregate ROUGE-L (0.16 → 0.34),
+but their advantage is more about vocabulary-matching the gold than
+about substantively unlocking knowledge the LLM lacks.
 
 ---
 
