@@ -30,6 +30,7 @@ dependencies = [
     "pandas>=2.2",
     # Evaluation
     "rouge-score>=0.1.2",
+    "matplotlib>=3.8",
 ]
 
 [dependency-groups]
