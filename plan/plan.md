@@ -2,6 +2,26 @@
 
 Internal working document. Not for the lecturer.
 
+## Status (2026-05-18)
+
+- ✅ Full eval complete: 300 questions × 4 retrievers (`98a54b5`)
+- ✅ Plotting module + 5 figures for poster (`0a4a207`)
+- ✅ Results write-up `results/results.md` with stratified per-qtype
+  analysis + discussion + limitations (`b3ce3ef`)
+- Key findings (full details in `results/results.md`):
+  - Retrieval gives ~+100 % ROUGE-L lift over LLM-only baseline
+  - Dense ≈ Entity-Aware overall (null result vs CDV hypothesis on
+    MedQuAD — likely because questions are highly explicit)
+  - BM25 has complementary strengths at `genetic changes` qtype
+    (exact-term match wins for gene names / mutation IDs)
+  - Abstention rate is a meaningful calibration signal — BM25
+    abstains 11 % overall, 50 % on `frequency`
+- Next (~3 days until poster):
+  - S-PubMedBERT ablation (~7 h CPU, overnight)
+  - BertScore + source-stratified eval (quick wins, no rerun)
+  - 20 qualitative cases in `notebooks/03_qualitative_analysis.ipynb`
+  - Poster layout
+
 ## Status (2026-05-15)
 
 - Phase 3 ✅ updated: entity-aware retriever now fully functional
