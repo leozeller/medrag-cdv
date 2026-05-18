@@ -80,6 +80,30 @@ def rouge_l_f1(generated: str, gold: str) -> float:
     return _ROUGE.score(gold, generated)["rougeL"].fmeasure
 
 
+def bertscore_f1_batch(generated: list[str], gold: list[str]) -> list[float]:
+    """Compute BertScore F1 for a list of (generated, gold) pairs.
+
+    Lazy-imports bert-score (which downloads a ~440 MB BERT model on
+    first use). Returns one F1 per pair, in the order given. Empty
+    inputs are replaced with a single space so the underlying library
+    doesn't NaN out — practically those will score near 0.
+    """
+    if not generated:
+        return []
+    from bert_score import score as bertscore  # lazy import
+
+    gen_clean = [g if g.strip() else " " for g in generated]
+    gold_clean = [g if g.strip() else " " for g in gold]
+    _, _, f1 = bertscore(
+        gen_clean,
+        gold_clean,
+        lang="en",
+        rescale_with_baseline=True,
+        verbose=False,
+    )
+    return [float(x) for x in f1.tolist()]
+
+
 def is_abstention(answer: str) -> bool:
     """True if the answer contains a known 'I don't know' / abstention phrase.
 
@@ -108,9 +132,22 @@ def passage_overlap(answer: str, passage_texts: list[str]) -> float:
     return len(answer_tokens & passage_tokens) / len(answer_tokens)
 
 
-def evaluate_run(run_path: Path, k: int) -> list[dict]:
-    """Compute per-question metrics from one pipeline output JSONL."""
+def evaluate_run(
+    run_path: Path,
+    k: int,
+    with_bertscore: bool = True,
+) -> list[dict]:
+    """Compute per-question metrics from one pipeline output JSONL.
+
+    BertScore is batched at the end because the bert-score library is
+    far more efficient when given all pairs at once than when called
+    once per row. Pass `with_bertscore=False` to skip (much faster, no
+    BERT model download required — useful in tests).
+    """
     records: list[dict] = []
+    generated_list: list[str] = []
+    gold_list: list[str] = []
+
     with run_path.open(encoding="utf-8") as fh:
         for line in fh:
             r = json.loads(line)
@@ -119,17 +156,28 @@ def evaluate_run(run_path: Path, k: int) -> list[dict]:
             # to empty string so older smoke runs evaluate without error.
             passage_texts = [p.get("text", "") for p in r["passages"]]
             generated = r["generated_answer"]
+            gold = r["gold_answer"]
             records.append(
                 {
                     "qid": r["qid"],
                     "qtype": r.get("qtype", ""),
+                    "source": r.get("source", ""),
                     "recall_at_k": recall_at_k(retrieved_doc_ids, r["doc_id"], k),
                     "mrr": mrr(retrieved_doc_ids, r["doc_id"]),
-                    "rouge_l_f1": rouge_l_f1(generated, r["gold_answer"]),
+                    "rouge_l_f1": rouge_l_f1(generated, gold),
+                    "bertscore_f1": 0.0,  # filled in batch below
                     "abstention": int(is_abstention(generated)),
                     "passage_overlap": passage_overlap(generated, passage_texts),
                 }
             )
+            generated_list.append(generated)
+            gold_list.append(gold)
+
+    if with_bertscore and records:
+        f1s = bertscore_f1_batch(generated_list, gold_list)
+        for record, f1 in zip(records, f1s, strict=True):
+            record["bertscore_f1"] = f1
+
     return records
 
 
@@ -138,6 +186,7 @@ _ZERO_AGG = {
     "recall_at_k": 0.0,
     "mrr": 0.0,
     "rouge_l_f1": 0.0,
+    "bertscore_f1": 0.0,
     "abstention_rate": 0.0,
     "passage_overlap": 0.0,
 }
@@ -151,6 +200,7 @@ def aggregate(per_q: list[dict]) -> dict:
         "recall_at_k": mean(r["recall_at_k"] for r in per_q),
         "mrr": mean(r["mrr"] for r in per_q),
         "rouge_l_f1": mean(r["rouge_l_f1"] for r in per_q),
+        "bertscore_f1": mean(r["bertscore_f1"] for r in per_q),
         "abstention_rate": mean(r["abstention"] for r in per_q),
         "passage_overlap": mean(r["passage_overlap"] for r in per_q),
     }
@@ -187,6 +237,16 @@ def main() -> None:
         action="store_true",
         help="Also emit stratified metrics per qtype.",
     )
+    parser.add_argument(
+        "--by-source",
+        action="store_true",
+        help="Also emit stratified metrics per NIH source.",
+    )
+    parser.add_argument(
+        "--no-bertscore",
+        action="store_true",
+        help="Skip BertScore (no model download, faster eval).",
+    )
     args = parser.parse_args()
 
     overall_rows: list[dict] = []
@@ -194,9 +254,16 @@ def main() -> None:
 
     for run_path in args.runs:
         retriever_name = run_path.stem
-        per_q = evaluate_run(run_path, args.k)
+        per_q = evaluate_run(
+            run_path, args.k, with_bertscore=not args.no_bertscore
+        )
         overall_rows.append(
-            {"retriever": retriever_name, "qtype": "all", **aggregate(per_q)}
+            {
+                "retriever": retriever_name,
+                "qtype": "all",
+                "source": "all",
+                **aggregate(per_q),
+            }
         )
 
         if args.by_qtype:
@@ -208,6 +275,21 @@ def main() -> None:
                     {
                         "retriever": retriever_name,
                         "qtype": qt,
+                        "source": "all",
+                        **aggregate(recs),
+                    }
+                )
+
+        if args.by_source:
+            by_source: dict[str, list[dict]] = defaultdict(list)
+            for r in per_q:
+                by_source[r["source"] or "unknown"].append(r)
+            for src, recs in sorted(by_source.items()):
+                stratified_rows.append(
+                    {
+                        "retriever": retriever_name,
+                        "qtype": "all",
+                        "source": src,
                         **aggregate(recs),
                     }
                 )
@@ -215,12 +297,16 @@ def main() -> None:
     rows = overall_rows + stratified_rows
     write_csv(rows, args.output)
 
+    show_source = args.by_source
     for row in rows:
+        src_part = f" src={row['source']:18s}" if show_source else ""
         print(
-            f"{row['retriever']:12s} qtype={row['qtype']:18s} "
+            f"{row['retriever']:12s} qtype={row['qtype']:18s}{src_part} "
             f"n={row['n']:4d}  R@{args.k}={row['recall_at_k']:.3f}  "
             f"MRR={row['mrr']:.3f}  ROUGE-L={row['rouge_l_f1']:.3f}  "
-            f"Abstain={row['abstention_rate']:.2f}  Overlap={row['passage_overlap']:.2f}"
+            f"BertScore={row['bertscore_f1']:+.3f}  "
+            f"Abstain={row['abstention_rate']:.2f}  "
+            f"Overlap={row['passage_overlap']:.2f}"
         )
     print(f"\nMetrics written to {args.output}")
 
