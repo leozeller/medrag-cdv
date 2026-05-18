@@ -1,4 +1,4 @@
-"""Tests for generation helpers (passage formatting + thinking-token stripping).
+"""Tests for generation helpers.
 
 The actual LLM invocation is not tested — it requires Ollama running and
 is verified manually via a smoke run.
@@ -6,18 +6,8 @@ is verified manually via a smoke run.
 
 from __future__ import annotations
 
-from src.generation import _format_passages, _strip_thinking
+from src.generation import _format_passages
 from src.passages import Passage
-
-
-def test_strip_thinking_removes_paired_tokens():
-    text = "<unused94>let me think about this...<unused95>The answer is X."
-    assert _strip_thinking(text) == "The answer is X."
-
-
-def test_strip_thinking_handles_unclosed_block_via_last_paragraph():
-    text = "<unused94>step 1\n\nstep 2\n\nFinal answer here."
-    assert _strip_thinking(text) == "Final answer here."
 
 
 def test_format_passages_numbers_and_separates():

@@ -5,22 +5,18 @@ the `OLLAMA_MODEL` and `OLLAMA_HOST` env vars. The prompt template is
 locked for the duration of the sprint (see decision T8 in
 `plan/decisions.md`) so retriever comparisons are not confounded by
 prompt-engineering effects.
-
-MedGemma 1.5 emits chain-of-thought wrapped in `<unused94>...<unused95>`
-tokens; we strip those before returning the final answer.
 """
 
 from __future__ import annotations
 
 import os
-import re
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 
 from src.passages import Passage
 
-DEFAULT_MODEL = "medgemma1.5:4b"
+DEFAULT_MODEL = "medgemma:4b"
 DEFAULT_HOST = "http://localhost:11434"
 # 2048 matches Ollama's own default num_ctx — keeping it identical avoids
 # triggering a model reload on first request, which can stall for minutes.
@@ -58,25 +54,9 @@ NO_CONTEXT_PROMPT = ChatPromptTemplate.from_messages(
     ]
 )
 
-_THINKING_RE = re.compile(r"<unused\d+>.*?<unused\d+>", flags=re.DOTALL)
-
 
 def _format_passages(passages: list[Passage]) -> str:
     return "\n\n".join(f"[{i + 1}] {p.text}" for i, p in enumerate(passages))
-
-
-def _strip_thinking(text: str) -> str:
-    """Remove MedGemma 1.5 thinking blocks.
-
-    Handles two cases:
-    1. Paired `<unused94>...<unused95>` blocks → regex-strip.
-    2. Unclosed `<unused94>...` blocks → keep only the last paragraph,
-       which is empirically the final answer.
-    """
-    cleaned = _THINKING_RE.sub("", text).strip()
-    if "<unused" in cleaned:
-        cleaned = cleaned.split("\n\n")[-1].strip()
-    return cleaned or text.strip()
 
 
 class Generator:
@@ -106,8 +86,6 @@ class Generator:
             # overnight runs across multiple retrievers).
             keep_alive=os.environ.get("OLLAMA_KEEP_ALIVE", "1h"),
             # Non-streaming: wait for the full response in one shot.
-            # Avoids langchain-ollama hanging in iter_lines on MedGemma 1.5's
-            # long thinking-trace phase.
             disable_streaming=True,
         )
         self._chain = PROMPT | self._llm
@@ -130,4 +108,4 @@ class Generator:
                 part if isinstance(part, str) else str(part.get("text", ""))
                 for part in content
             )
-        return _strip_thinking(content)
+        return content
